@@ -1,0 +1,41 @@
+# Version control
+.git
+.gitignore
+
+# Docker files (avoid recursive context)
+docker-compose*.yml
+Dockerfile*
+.dockerignore
+
+# Dependencies (rebuilt in container)
+node_modules
+
+# Environment and secrets
+.env
+.env.local
+.env.*.local
+
+# Documentation
+*.md
+docs/
+LICENSE
+
+# IDE and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+
+# Test and coverage
+coverage/
+__tests__/
+*.test.*
+*.spec.*
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.ulpi/
+.ulpi-ci/
+.claude/

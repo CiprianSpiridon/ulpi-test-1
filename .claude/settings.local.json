@@ -1,0 +1,99 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"/usr/local/bin/ulpi\" pre-tool"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"/usr/local/bin/ulpi\" post-tool"
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"/usr/local/bin/ulpi\" permission"
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"/usr/local/bin/ulpi\" notification"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"/usr/local/bin/ulpi\" stop"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"/usr/local/bin/ulpi\" session-start"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"/usr/local/bin/ulpi\" session-end"
+          }
+        ]
+      }
+    ]
+  },
+  "mcpServers": {
+    "codemap": {
+      "command": "node",
+      "args": [
+        "/usr/local/bin/ulpi",
+        "codemap",
+        "serve"
+      ]
+    },
+    "memory": {
+      "command": "node",
+      "args": [
+        "/usr/local/bin/ulpi",
+        "memory",
+        "serve"
+      ]
+    }
+  }
+}

@@ -1,0 +1,73 @@
+# ULPI — Rules Configuration
+# Generated automatically for CI worker.
+# Project: workspace
+
+project:
+  name: "workspace"
+  runtime: "unknown"
+  package_manager: "npm"
+
+preconditions:
+  read-before-write:
+    enabled: true
+    trigger: "PreToolUse"
+    matcher: "Write|Edit|MultiEdit"
+    requires_read: true
+    message: "Read {file_path} before editing it."
+    locked: true
+    priority: 10
+  read-before-edit:
+    enabled: true
+    trigger: "PreToolUse"
+    matcher: "Edit|MultiEdit"
+    requires_read: true
+    message: "Read {file_path} first."
+    locked: true
+    priority: 10
+  no-empty-overwrites:
+    enabled: true
+    trigger: "PreToolUse"
+    matcher: "Write"
+    message: "You're overwriting with empty content. Provide actual content."
+    locked: true
+    priority: 10
+  branch-before-commit:
+    enabled: true
+    trigger: "PreToolUse"
+    matcher: "Bash"
+    command_pattern: "git commit"
+    requires:
+      - "branch_created"
+    message: "Create a feature branch first: git checkout -b feature/your-feature-name"
+    priority: 20
+
+permissions:
+  auto-approve-reads:
+    enabled: true
+    trigger: "PermissionRequest"
+    matcher: "Read|LS|Glob|Grep"
+    decision: "allow"
+    priority: 100
+  block-env-files:
+    enabled: true
+    trigger: "PreToolUse"
+    matcher: "Write|Edit"
+    file_pattern: ".env*"
+    decision: "deny"
+    message: "Cannot edit .env files directly. Use .env.example as template."
+    priority: 50
+  custom-dangerous-commands:
+    enabled: false
+    trigger: "PreToolUse"
+    matcher: "Bash"
+    command_pattern: "your-custom-pattern-here"
+    decision: "deny"
+    message: "Custom dangerous command blocked."
+  custom-auto-approvals:
+    enabled: false
+    trigger: "PermissionRequest"
+    matcher: "Bash"
+    command_pattern: "npm test"
+    decision: "allow"
+    message: "Auto-approved test command."
+
