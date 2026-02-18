@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PermissionRequest": [
+      {
+        "matcher": "ExitPlanMode",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/apps/hook/dist/ulpi-review plan",
+            "timeout": 345600
+          }
+        ]
+      }
+    ]
+  }
+}
