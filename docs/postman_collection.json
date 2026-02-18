@@ -1,0 +1,962 @@
+{
+  "info": {
+    "name": "Enterprise URL Shortener API",
+    "description": "Comprehensive collection for the Enterprise URL Shortener API with all endpoints, examples, and tests.",
+    "version": "1.0.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Auto-refresh token if expired",
+          "if (pm.globals.get('accessToken') && pm.globals.get('refreshToken')) {",
+          "    const tokenExpiry = pm.globals.get('tokenExpiry');",
+          "    const now = new Date().getTime();",
+          "    ",
+          "    if (tokenExpiry && now > tokenExpiry - 60000) { // Refresh 1 minute before expiry",
+          "        console.log('Token expiring soon, refreshing...');",
+          "        ",
+          "        pm.sendRequest({",
+          "            url: pm.environment.get('baseURL') + '/auth/refresh',",
+          "            method: 'POST',",
+          "            header: {",
+          "                'Content-Type': 'application/json'",
+          "            },",
+          "            body: {",
+          "                mode: 'raw',",
+          "                raw: JSON.stringify({",
+          "                    refreshToken: pm.globals.get('refreshToken')",
+          "                })",
+          "            }",
+          "        }, function (err, response) {",
+          "            if (err) {",
+          "                console.error('Token refresh failed:', err);",
+          "                return;",
+          "            }",
+          "            ",
+          "            const responseJson = response.json();",
+          "            if (responseJson.success) {",
+          "                pm.globals.set('accessToken', responseJson.data.accessToken);",
+          "                pm.globals.set('tokenExpiry', new Date().getTime() + (responseJson.data.expiresIn * 1000));",
+          "                console.log('Token refreshed successfully');",
+          "            }",
+          "        });",
+          "    }",
+          "}"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Global test for rate limiting headers",
+          "pm.test('Rate limit headers present', function () {",
+          "    pm.response.to.have.header('X-RateLimit-Limit');",
+          "    pm.response.to.have.header('X-RateLimit-Remaining');",
+          "    pm.response.to.have.header('X-RateLimit-Reset');",
+          "});",
+          "",
+          "// Log rate limit info",
+          "const remaining = pm.response.headers.get('X-RateLimit-Remaining');",
+          "const limit = pm.response.headers.get('X-RateLimit-Limit');",
+          "if (remaining && limit) {",
+          "    console.log(`Rate Limit: ${remaining}/${limit} remaining`);",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseURL",
+      "value": "https://api.urlshortener.com",
+      "type": "string"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refreshToken",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Register User",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{$randomEmail}}\",\n  \"password\": \"SecurePassword123!\",\n  \"name\": \"{{$randomFullName}}\",\n  \"organization\": \"{{$randomCompanyName}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseURL}}/auth/register",
+              "host": ["{{baseURL}}"],
+              "path": ["auth", "register"]
+            },
+            "description": "Register a new user account and receive authentication tokens."
+          },
+          "response": [
+            {
+              "name": "Success",
+              "status": "Created",
+              "code": 201,
+              "body": "{\n  \"success\": true,\n  \"message\": \"User registered successfully\",\n  \"data\": {\n    \"user\": {\n      \"id\": 123,\n      \"email\": \"john.doe@example.com\",\n      \"name\": \"John Doe\",\n      \"organization\": \"Acme Corp\",\n      \"createdAt\": \"2024-01-15T10:30:00Z\"\n    },\n    \"tokens\": {\n      \"accessToken\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n      \"refreshToken\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n      \"expiresIn\": 3600\n    }\n  }\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Registration successful', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.tokens.accessToken).to.exist;",
+                  "});",
+                  "",
+                  "if (pm.response.code === 201) {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.globals.set('accessToken', responseJson.data.tokens.accessToken);",
+                  "    pm.globals.set('refreshToken', responseJson.data.tokens.refreshToken);",
+                  "    pm.globals.set('userId', responseJson.data.user.id);",
+                  "    pm.globals.set('tokenExpiry', new Date().getTime() + (responseJson.data.tokens.expiresIn * 1000));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login User",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"SecurePassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseURL}}/auth/login",
+              "host": ["{{baseURL}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Authenticate user and receive JWT tokens."
+          },
+          "response": [
+            {
+              "name": "Success",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"message\": \"Login successful\",\n  \"data\": {\n    \"user\": {\n      \"id\": 123,\n      \"email\": \"john.doe@example.com\",\n      \"name\": \"John Doe\",\n      \"organization\": \"Acme Corp\"\n    },\n    \"tokens\": {\n      \"accessToken\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n      \"refreshToken\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n      \"expiresIn\": 3600\n    }\n  }\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Login successful', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.tokens.accessToken).to.exist;",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.globals.set('accessToken', responseJson.data.tokens.accessToken);",
+                  "    pm.globals.set('refreshToken', responseJson.data.tokens.refreshToken);",
+                  "    pm.globals.set('userId', responseJson.data.user.id);",
+                  "    pm.globals.set('tokenExpiry', new Date().getTime() + (responseJson.data.tokens.expiresIn * 1000));",
+                  "    console.log('Logged in as:', responseJson.data.user.name);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseURL}}/auth/refresh",
+              "host": ["{{baseURL}}"],
+              "path": ["auth", "refresh"]
+            },
+            "description": "Get new access token using refresh token."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Token refresh successful', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.accessToken).to.exist;",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.globals.set('accessToken', responseJson.data.accessToken);",
+                  "    pm.globals.set('tokenExpiry', new Date().getTime() + (responseJson.data.expiresIn * 1000));",
+                  "    console.log('Token refreshed successfully');",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "User authentication and token management endpoints."
+    },
+    {
+      "name": "URL Management",
+      "item": [
+        {
+          "name": "Create Short URL - Basic",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"originalUrl\": \"https://www.example.com/very/long/url/path/that/needs/shortening\",\n  \"title\": \"Example Website\"\n}"
+            },
+            "url": {
+              "raw": "{{baseURL}}/urls",
+              "host": ["{{baseURL}}"],
+              "path": ["urls"]
+            },
+            "description": "Create a basic short URL without custom options."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('URL created successfully', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.shortUrl).to.exist;",
+                  "    pm.expect(responseJson.data.shortCode).to.exist;",
+                  "});",
+                  "",
+                  "if (pm.response.code === 201) {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.globals.set('lastCreatedUrlId', responseJson.data.id);",
+                  "    pm.globals.set('lastCreatedShortCode', responseJson.data.shortCode);",
+                  "    console.log('Created URL:', responseJson.data.shortUrl);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Short URL - Advanced",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"originalUrl\": \"https://github.com/awesome-project/repository\",\n  \"title\": \"Awesome Open Source Project\",\n  \"customSlug\": \"awesome-{{$timestamp}}\",\n  \"expiresAt\": \"2024-12-31T23:59:59Z\",\n  \"tags\": [\"github\", \"open-source\", \"development\", \"awesome\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseURL}}/urls",
+              "host": ["{{baseURL}}"],
+              "path": ["urls"]
+            },
+            "description": "Create a short URL with custom slug, expiration, and tags."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Advanced URL created successfully', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.tags).to.be.an('array');",
+                  "    pm.expect(responseJson.data.expiresAt).to.exist;",
+                  "});",
+                  "",
+                  "if (pm.response.code === 201) {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.globals.set('advancedUrlId', responseJson.data.id);",
+                  "    console.log('Created advanced URL:', responseJson.data.shortUrl);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List URLs - Basic",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}/urls?page=1&limit=10",
+              "host": ["{{baseURL}}"],
+              "path": ["urls"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Get paginated list of user's URLs."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('URLs retrieved successfully', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.urls).to.be.an('array');",
+                  "    pm.expect(responseJson.data.pagination).to.exist;",
+                  "});",
+                  "",
+                  "const responseJson = pm.response.json();",
+                  "console.log(`Found ${responseJson.data.pagination.totalItems} URLs`);",
+                  "",
+                  "// Store first URL ID for other tests",
+                  "if (responseJson.data.urls.length > 0) {",
+                  "    pm.globals.set('firstUrlId', responseJson.data.urls[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List URLs - Filtered",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}/urls?page=1&limit=20&search=github&tag=development&sortBy=clicks&sortOrder=desc",
+              "host": ["{{baseURL}}"],
+              "path": ["urls"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "search",
+                  "value": "github"
+                },
+                {
+                  "key": "tag",
+                  "value": "development"
+                },
+                {
+                  "key": "sortBy",
+                  "value": "clicks"
+                },
+                {
+                  "key": "sortOrder",
+                  "value": "desc"
+                }
+              ]
+            },
+            "description": "Get filtered and sorted list of URLs."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Filtered URLs retrieved', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get URL Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}/urls/{{firstUrlId}}",
+              "host": ["{{baseURL}}"],
+              "path": ["urls", "{{firstUrlId}}"]
+            },
+            "description": "Get detailed information about a specific URL."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('URL details retrieved', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.id).to.exist;",
+                  "    pm.expect(responseJson.data.shortUrl).to.exist;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update URL",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Updated Title - {{$timestamp}}\",\n  \"tags\": [\"updated\", \"example\", \"postman\"],\n  \"isActive\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseURL}}/urls/{{firstUrlId}}",
+              "host": ["{{baseURL}}"],
+              "path": ["urls", "{{firstUrlId}}"]
+            },
+            "description": "Update URL title, tags, and active status."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('URL updated successfully', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.title).to.include('Updated Title');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete URL",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}/urls/{{lastCreatedUrlId}}",
+              "host": ["{{baseURL}}"],
+              "path": ["urls", "{{lastCreatedUrlId}}"]
+            },
+            "description": "Delete a URL (cannot be undone)."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('URL deleted successfully', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "URL shortening, retrieval, and management operations."
+    },
+    {
+      "name": "Analytics",
+      "item": [
+        {
+          "name": "URL Analytics - 30 Days",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}/analytics/urls/{{firstUrlId}}?period=30d&granularity=day",
+              "host": ["{{baseURL}}"],
+              "path": ["analytics", "urls", "{{firstUrlId}}"],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "30d"
+                },
+                {
+                  "key": "granularity",
+                  "value": "day"
+                }
+              ]
+            },
+            "description": "Get detailed analytics for a specific URL over 30 days."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('URL analytics retrieved', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.summary).to.exist;",
+                  "    pm.expect(responseJson.data.clickHistory).to.be.an('array');",
+                  "    pm.expect(responseJson.data.geography).to.be.an('array');",
+                  "});",
+                  "",
+                  "const responseJson = pm.response.json();",
+                  "console.log(`Total clicks: ${responseJson.data.summary.totalClicks}`);",
+                  "console.log(`Unique clicks: ${responseJson.data.summary.uniqueClicks}`);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "URL Analytics - 7 Days Hourly",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}/analytics/urls/{{firstUrlId}}?period=7d&granularity=hour",
+              "host": ["{{baseURL}}"],
+              "path": ["analytics", "urls", "{{firstUrlId}}"],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "7d"
+                },
+                {
+                  "key": "granularity",
+                  "value": "hour"
+                }
+              ]
+            },
+            "description": "Get hourly analytics for a URL over 7 days."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Hourly analytics retrieved', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.period).to.equal('7d');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Dashboard Analytics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}/analytics/dashboard?period=30d",
+              "host": ["{{baseURL}}"],
+              "path": ["analytics", "dashboard"],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "30d"
+                }
+              ]
+            },
+            "description": "Get dashboard overview analytics for the user's account."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Dashboard analytics retrieved', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.summary).to.exist;",
+                  "    pm.expect(responseJson.data.topUrls).to.be.an('array');",
+                  "    pm.expect(responseJson.data.clickTrend).to.be.an('array');",
+                  "});",
+                  "",
+                  "const responseJson = pm.response.json();",
+                  "const summary = responseJson.data.summary;",
+                  "console.log(`Total URLs: ${summary.totalUrls}`);",
+                  "console.log(`Total clicks: ${summary.totalClicks}`);",
+                  "console.log(`Clicks today: ${summary.clicksToday}`);"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "Analytics and reporting endpoints for URLs and dashboard."
+    },
+    {
+      "name": "Redirect",
+      "item": [
+        {
+          "name": "Test Redirect (HEAD)",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "HEAD",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}/{{lastCreatedShortCode}}",
+              "host": ["{{baseURL}}"],
+              "path": ["{{lastCreatedShortCode}}"]
+            },
+            "description": "Test redirect without following it (HEAD request)."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Redirect response received', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([302, 301]);",
+                  "});",
+                  "",
+                  "pm.test('Location header present', function () {",
+                  "    pm.response.to.have.header('Location');",
+                  "});",
+                  "",
+                  "const location = pm.response.headers.get('Location');",
+                  "if (location) {",
+                  "    console.log('Redirects to:', location);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Follow Redirect (GET)",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}/{{lastCreatedShortCode}}",
+              "host": ["{{baseURL}}"],
+              "path": ["{{lastCreatedShortCode}}"]
+            },
+            "description": "Follow redirect to original URL (will track analytics)."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Note: This test may follow the redirect automatically",
+                  "pm.test('Redirect handled', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 301, 302]);",
+                  "});",
+                  "",
+                  "console.log('Final URL:', pm.request.url.toString());"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "URL redirection service endpoints."
+    },
+    {
+      "name": "Error Handling Examples",
+      "item": [
+        {
+          "name": "Invalid URL Creation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"originalUrl\": \"not-a-valid-url\",\n  \"title\": \"Invalid URL Test\"\n}"
+            },
+            "url": {
+              "raw": "{{baseURL}}/urls",
+              "host": ["{{baseURL}}"],
+              "path": ["urls"]
+            },
+            "description": "Test validation error with invalid URL."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Validation error returned', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.false;",
+                  "    pm.expect(responseJson.error).to.equal('VALIDATION_ERROR');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Non-existent URL",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}/urls/999999",
+              "host": ["{{baseURL}}"],
+              "path": ["urls", "999999"]
+            },
+            "description": "Test 404 error with non-existent URL."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Not found error returned', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.false;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Unauthorized Request",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "invalid_token_here",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}/urls",
+              "host": ["{{baseURL}}"],
+              "path": ["urls"]
+            },
+            "description": "Test authorization error with invalid token."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Unauthorized error returned', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.false;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "Examples of error handling and validation."
+    },
+    {
+      "name": "Bulk Operations",
+      "item": [
+        {
+          "name": "Create Multiple URLs",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// This example shows how to create multiple URLs in sequence",
+                  "// In a real scenario, you would send separate requests",
+                  "",
+                  "const urls = [",
+                  "    {",
+                  "        originalUrl: 'https://www.example.com/page1',",
+                  "        title: 'Example Page 1',",
+                  "        tags: ['bulk', 'example', 'page1']",
+                  "    },",
+                  "    {",
+                  "        originalUrl: 'https://www.example.com/page2',",
+                  "        title: 'Example Page 2',",
+                  "        tags: ['bulk', 'example', 'page2']",
+                  "    },",
+                  "    {",
+                  "        originalUrl: 'https://www.example.com/page3',",
+                  "        title: 'Example Page 3',",
+                  "        tags: ['bulk', 'example', 'page3']",
+                  "    }",
+                  "];",
+                  "",
+                  "// Store for use in request",
+                  "pm.globals.set('bulkUrls', JSON.stringify(urls));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"originalUrl\": \"https://www.example.com/bulk-page-{{$timestamp}}\",\n  \"title\": \"Bulk Created URL - {{$timestamp}}\",\n  \"tags\": [\"bulk\", \"example\", \"postman\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseURL}}/urls",
+              "host": ["{{baseURL}}"],
+              "path": ["urls"]
+            },
+            "description": "Example of creating URLs in bulk (run this request multiple times)."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Bulk URL created', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "});",
+                  "",
+                  "// Add delay to respect rate limits",
+                  "setTimeout(function(){}, 100);"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "Examples of bulk operations and batch processing."
+    }
+  ]
+}

@@ -1,0 +1,1259 @@
+openapi: 3.0.3
+info:
+  title: Enterprise URL Shortener API
+  description: |
+    A comprehensive enterprise-grade URL shortening service with advanced features including user authentication, analytics, rate limiting, and custom domains.
+
+    ## Features
+    - JWT-based authentication
+    - URL shortening with custom slugs
+    - Advanced analytics and reporting
+    - Rate limiting and security
+    - RESTful API design
+
+    ## Authentication
+    This API uses JWT (JSON Web Tokens) for authentication. Include the token in the Authorization header as follows:
+    ```
+    Authorization: Bearer <your-jwt-token>
+    ```
+
+    ## Rate Limiting
+    API requests are rate limited per user:
+    - Authenticated users: 1000 requests per hour
+    - Unauthenticated users: 100 requests per hour
+
+    Rate limit headers are included in all responses:
+    - `X-RateLimit-Limit`: Request limit per window
+    - `X-RateLimit-Remaining`: Remaining requests in current window
+    - `X-RateLimit-Reset`: Time when rate limit resets (Unix timestamp)
+
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: api-support@urlshortener.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:3000
+    description: Development server
+  - url: https://api.urlshortener.com
+    description: Production server
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: Authentication
+    description: User authentication and token management
+  - name: URL Management
+    description: URL shortening, retrieval, and management operations
+  - name: Analytics
+    description: Analytics and reporting endpoints
+  - name: Redirect
+    description: URL redirection service
+
+paths:
+  /auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: Register a new user
+      description: Create a new user account with email and password
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+            examples:
+              user_registration:
+                summary: Standard user registration
+                value:
+                  email: john.doe@example.com
+                  password: SecurePassword123!
+                  name: John Doe
+                  organization: Acme Corp
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+              examples:
+                success:
+                  summary: Successful registration
+                  value:
+                    success: true
+                    message: User registered successfully
+                    data:
+                      user:
+                        id: 123
+                        email: john.doe@example.com
+                        name: John Doe
+                        organization: Acme Corp
+                        createdAt: "2024-01-15T10:30:00Z"
+                      tokens:
+                        accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                        refreshToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                        expiresIn: 3600
+        '400':
+          description: Invalid input data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                validation_error:
+                  summary: Validation error
+                  value:
+                    success: false
+                    error: VALIDATION_ERROR
+                    message: Validation failed
+                    details:
+                      - field: email
+                        message: Invalid email format
+                      - field: password
+                        message: Password must be at least 8 characters long
+        '409':
+          description: User already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                user_exists:
+                  summary: User already exists
+                  value:
+                    success: false
+                    error: USER_EXISTS
+                    message: User with this email already exists
+
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: User login
+      description: Authenticate user and receive JWT tokens
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            examples:
+              standard_login:
+                summary: Standard login
+                value:
+                  email: john.doe@example.com
+                  password: SecurePassword123!
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+              examples:
+                success:
+                  summary: Successful login
+                  value:
+                    success: true
+                    message: Login successful
+                    data:
+                      user:
+                        id: 123
+                        email: john.doe@example.com
+                        name: John Doe
+                        organization: Acme Corp
+                      tokens:
+                        accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                        refreshToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                        expiresIn: 3600
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalid_credentials:
+                  summary: Invalid credentials
+                  value:
+                    success: false
+                    error: INVALID_CREDENTIALS
+                    message: Invalid email or password
+        '429':
+          description: Too many login attempts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                rate_limited:
+                  summary: Rate limited
+                  value:
+                    success: false
+                    error: RATE_LIMITED
+                    message: Too many login attempts. Please try again later.
+
+  /auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh JWT token
+      description: Get new access token using refresh token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+            examples:
+              token_refresh:
+                summary: Token refresh
+                value:
+                  refreshToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+              examples:
+                success:
+                  summary: Successful refresh
+                  value:
+                    success: true
+                    message: Token refreshed successfully
+                    data:
+                      accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                      expiresIn: 3600
+        '401':
+          description: Invalid refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /urls:
+    post:
+      tags:
+        - URL Management
+      summary: Create a short URL
+      description: Create a new short URL with optional custom slug and expiration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUrlRequest'
+            examples:
+              basic_url:
+                summary: Basic URL shortening
+                value:
+                  originalUrl: https://www.example.com/very/long/url/path
+                  title: Example Website
+              custom_slug:
+                summary: Custom slug
+                value:
+                  originalUrl: https://www.github.com/myrepo
+                  title: My GitHub Repository
+                  customSlug: myrepo
+                  expiresAt: "2024-12-31T23:59:59Z"
+                  tags:
+                    - development
+                    - github
+      responses:
+        '201':
+          description: URL created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UrlResponse'
+              examples:
+                success:
+                  summary: Successful creation
+                  value:
+                    success: true
+                    message: URL created successfully
+                    data:
+                      id: 456
+                      originalUrl: https://www.example.com/very/long/url/path
+                      shortUrl: https://short.ly/abc123
+                      shortCode: abc123
+                      title: Example Website
+                      clicks: 0
+                      isActive: true
+                      expiresAt: null
+                      createdAt: "2024-01-15T10:30:00Z"
+                      updatedAt: "2024-01-15T10:30:00Z"
+                      tags: []
+        '400':
+          description: Invalid URL or parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Custom slug already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      tags:
+        - URL Management
+      summary: List user's URLs
+      description: Retrieve paginated list of URLs created by the authenticated user
+      parameters:
+        - name: page
+          in: query
+          description: Page number (1-based)
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          example: 1
+        - name: limit
+          in: query
+          description: Number of items per page
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          example: 20
+        - name: search
+          in: query
+          description: Search in URL title or original URL
+          schema:
+            type: string
+          example: github
+        - name: tag
+          in: query
+          description: Filter by tag
+          schema:
+            type: string
+          example: development
+        - name: sortBy
+          in: query
+          description: Sort field
+          schema:
+            type: string
+            enum: [createdAt, updatedAt, clicks, title]
+            default: createdAt
+          example: clicks
+        - name: sortOrder
+          in: query
+          description: Sort order
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+          example: desc
+      responses:
+        '200':
+          description: URLs retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UrlListResponse'
+              examples:
+                success:
+                  summary: Successful retrieval
+                  value:
+                    success: true
+                    message: URLs retrieved successfully
+                    data:
+                      urls:
+                        - id: 456
+                          originalUrl: https://www.example.com/page1
+                          shortUrl: https://short.ly/abc123
+                          shortCode: abc123
+                          title: Example Page 1
+                          clicks: 25
+                          isActive: true
+                          createdAt: "2024-01-15T10:30:00Z"
+                          tags: [web, example]
+                        - id: 457
+                          originalUrl: https://www.github.com/myrepo
+                          shortUrl: https://short.ly/def456
+                          shortCode: def456
+                          title: My Repository
+                          clicks: 142
+                          isActive: true
+                          createdAt: "2024-01-14T14:20:00Z"
+                          tags: [development, github]
+                      pagination:
+                        currentPage: 1
+                        totalPages: 5
+                        totalItems: 95
+                        itemsPerPage: 20
+                        hasNext: true
+                        hasPrev: false
+
+  /urls/{id}:
+    get:
+      tags:
+        - URL Management
+      summary: Get URL details
+      description: Retrieve detailed information about a specific URL
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: URL ID
+          schema:
+            type: integer
+          example: 456
+      responses:
+        '200':
+          description: URL details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UrlResponse'
+        '404':
+          description: URL not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      tags:
+        - URL Management
+      summary: Update URL
+      description: Update URL title, tags, expiration, or active status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: URL ID
+          schema:
+            type: integer
+          example: 456
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUrlRequest'
+            examples:
+              update_title:
+                summary: Update title and tags
+                value:
+                  title: Updated Title
+                  tags:
+                    - updated
+                    - example
+              deactivate_url:
+                summary: Deactivate URL
+                value:
+                  isActive: false
+      responses:
+        '200':
+          description: URL updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UrlResponse'
+        '404':
+          description: URL not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags:
+        - URL Management
+      summary: Delete URL
+      description: Permanently delete a URL (cannot be undone)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: URL ID
+          schema:
+            type: integer
+          example: 456
+      responses:
+        '200':
+          description: URL deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                example:
+                  success: true
+                  message: URL deleted successfully
+        '404':
+          description: URL not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /{shortCode}:
+    get:
+      tags:
+        - Redirect
+      summary: Redirect to original URL
+      description: Redirect to the original URL associated with the short code and track analytics
+      security: []
+      parameters:
+        - name: shortCode
+          in: path
+          required: true
+          description: The short code to redirect
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9_-]+$'
+          example: abc123
+      responses:
+        '302':
+          description: Redirect to original URL
+          headers:
+            Location:
+              description: The original URL to redirect to
+              schema:
+                type: string
+                format: uri
+              example: https://www.example.com/very/long/url/path
+        '404':
+          description: Short code not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                not_found:
+                  summary: Short code not found
+                  value:
+                    success: false
+                    error: NOT_FOUND
+                    message: Short URL not found
+        '410':
+          description: URL expired or inactive
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                expired:
+                  summary: URL expired
+                  value:
+                    success: false
+                    error: URL_EXPIRED
+                    message: This short URL has expired
+
+  /analytics/urls/{id}:
+    get:
+      tags:
+        - Analytics
+      summary: Get URL analytics
+      description: Retrieve detailed analytics for a specific URL including click history, geographic data, and referrer information
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: URL ID
+          schema:
+            type: integer
+          example: 456
+        - name: period
+          in: query
+          description: Time period for analytics
+          schema:
+            type: string
+            enum: [24h, 7d, 30d, 90d, 1y]
+            default: 30d
+          example: 30d
+        - name: granularity
+          in: query
+          description: Data granularity
+          schema:
+            type: string
+            enum: [hour, day, week, month]
+            default: day
+          example: day
+      responses:
+        '200':
+          description: Analytics data retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyticsResponse'
+              examples:
+                success:
+                  summary: URL analytics
+                  value:
+                    success: true
+                    message: Analytics retrieved successfully
+                    data:
+                      url:
+                        id: 456
+                        shortCode: abc123
+                        title: Example Website
+                        totalClicks: 1542
+                      period: "30d"
+                      summary:
+                        totalClicks: 1542
+                        uniqueClicks: 987
+                        clicksToday: 45
+                        averageClicksPerDay: 51.4
+                      clickHistory:
+                        - date: "2024-01-15"
+                          clicks: 45
+                          uniqueClicks: 32
+                        - date: "2024-01-14"
+                          clicks: 67
+                          uniqueClicks: 41
+                      geography:
+                        - country: US
+                          clicks: 654
+                          percentage: 42.4
+                        - country: GB
+                          clicks: 231
+                          percentage: 15.0
+                        - country: CA
+                          clicks: 189
+                          percentage: 12.3
+                      referrers:
+                        - referrer: google.com
+                          clicks: 445
+                          percentage: 28.9
+                        - referrer: direct
+                          clicks: 321
+                          percentage: 20.8
+                        - referrer: twitter.com
+                          clicks: 198
+                          percentage: 12.8
+                      devices:
+                        - device: desktop
+                          clicks: 892
+                          percentage: 57.9
+                        - device: mobile
+                          clicks: 567
+                          percentage: 36.8
+                        - device: tablet
+                          clicks: 83
+                          percentage: 5.4
+                      browsers:
+                        - browser: Chrome
+                          clicks: 789
+                          percentage: 51.2
+                        - browser: Safari
+                          clicks: 345
+                          percentage: 22.4
+                        - browser: Firefox
+                          clicks: 234
+                          percentage: 15.2
+        '404':
+          description: URL not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /analytics/dashboard:
+    get:
+      tags:
+        - Analytics
+      summary: Get dashboard metrics
+      description: Retrieve overview analytics for the authenticated user's account
+      parameters:
+        - name: period
+          in: query
+          description: Time period for analytics
+          schema:
+            type: string
+            enum: [24h, 7d, 30d, 90d, 1y]
+            default: 30d
+          example: 30d
+      responses:
+        '200':
+          description: Dashboard metrics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardResponse'
+              examples:
+                success:
+                  summary: Dashboard metrics
+                  value:
+                    success: true
+                    message: Dashboard data retrieved successfully
+                    data:
+                      period: "30d"
+                      summary:
+                        totalUrls: 45
+                        totalClicks: 12847
+                        uniqueClicks: 8932
+                        activeUrls: 42
+                        expiredUrls: 2
+                        clicksToday: 234
+                        averageClicksPerDay: 428.2
+                      topUrls:
+                        - id: 456
+                          title: Popular Article
+                          shortCode: abc123
+                          clicks: 1542
+                        - id: 789
+                          title: Product Page
+                          shortCode: def456
+                          clicks: 987
+                        - id: 101
+                          title: Blog Post
+                          shortCode: ghi789
+                          clicks: 743
+                      recentActivity:
+                        - id: 456
+                          title: Popular Article
+                          shortCode: abc123
+                          clicks: 25
+                          timestamp: "2024-01-15T10:30:00Z"
+                        - id: 789
+                          title: Product Page
+                          shortCode: def456
+                          clicks: 18
+                          timestamp: "2024-01-15T09:45:00Z"
+                      clickTrend:
+                        - date: "2024-01-15"
+                          clicks: 234
+                        - date: "2024-01-14"
+                          clicks: 298
+                        - date: "2024-01-13"
+                          clicks: 456
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    RegisterRequest:
+      type: object
+      required:
+        - email
+        - password
+        - name
+      properties:
+        email:
+          type: string
+          format: email
+          description: User's email address
+        password:
+          type: string
+          minLength: 8
+          description: User's password (minimum 8 characters)
+        name:
+          type: string
+          minLength: 2
+          description: User's full name
+        organization:
+          type: string
+          description: User's organization (optional)
+      example:
+        email: john.doe@example.com
+        password: SecurePassword123!
+        name: John Doe
+        organization: Acme Corp
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          description: User's email address
+        password:
+          type: string
+          description: User's password
+      example:
+        email: john.doe@example.com
+        password: SecurePassword123!
+
+    RefreshRequest:
+      type: object
+      required:
+        - refreshToken
+      properties:
+        refreshToken:
+          type: string
+          description: Valid refresh token
+      example:
+        refreshToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+    CreateUrlRequest:
+      type: object
+      required:
+        - originalUrl
+      properties:
+        originalUrl:
+          type: string
+          format: uri
+          description: The original URL to shorten
+        title:
+          type: string
+          description: Optional title for the URL
+        customSlug:
+          type: string
+          pattern: '^[a-zA-Z0-9_-]+$'
+          minLength: 3
+          maxLength: 50
+          description: Optional custom short code
+        expiresAt:
+          type: string
+          format: date-time
+          description: Optional expiration date
+        tags:
+          type: array
+          items:
+            type: string
+          description: Optional tags for categorization
+      example:
+        originalUrl: https://www.example.com/very/long/url/path
+        title: Example Website
+        customSlug: example
+        expiresAt: "2024-12-31T23:59:59Z"
+        tags: [web, example]
+
+    UpdateUrlRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          description: URL title
+        tags:
+          type: array
+          items:
+            type: string
+          description: URL tags
+        expiresAt:
+          type: string
+          format: date-time
+          description: Expiration date (null to remove expiration)
+        isActive:
+          type: boolean
+          description: Whether the URL is active
+      example:
+        title: Updated Title
+        tags: [updated, example]
+        isActive: true
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: User ID
+        email:
+          type: string
+          format: email
+          description: User's email
+        name:
+          type: string
+          description: User's name
+        organization:
+          type: string
+          description: User's organization
+        createdAt:
+          type: string
+          format: date-time
+          description: Account creation date
+      example:
+        id: 123
+        email: john.doe@example.com
+        name: John Doe
+        organization: Acme Corp
+        createdAt: "2024-01-15T10:30:00Z"
+
+    Url:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: URL ID
+        originalUrl:
+          type: string
+          format: uri
+          description: Original URL
+        shortUrl:
+          type: string
+          format: uri
+          description: Complete short URL
+        shortCode:
+          type: string
+          description: Short code only
+        title:
+          type: string
+          description: URL title
+        clicks:
+          type: integer
+          description: Total number of clicks
+        isActive:
+          type: boolean
+          description: Whether the URL is active
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Expiration date
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation date
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update date
+        tags:
+          type: array
+          items:
+            type: string
+          description: URL tags
+      example:
+        id: 456
+        originalUrl: https://www.example.com/page
+        shortUrl: https://short.ly/abc123
+        shortCode: abc123
+        title: Example Page
+        clicks: 142
+        isActive: true
+        expiresAt: null
+        createdAt: "2024-01-15T10:30:00Z"
+        updatedAt: "2024-01-15T10:30:00Z"
+        tags: [example, web]
+
+    Pagination:
+      type: object
+      properties:
+        currentPage:
+          type: integer
+          description: Current page number
+        totalPages:
+          type: integer
+          description: Total number of pages
+        totalItems:
+          type: integer
+          description: Total number of items
+        itemsPerPage:
+          type: integer
+          description: Items per page
+        hasNext:
+          type: boolean
+          description: Whether there is a next page
+        hasPrev:
+          type: boolean
+          description: Whether there is a previous page
+      example:
+        currentPage: 1
+        totalPages: 5
+        totalItems: 95
+        itemsPerPage: 20
+        hasNext: true
+        hasPrev: false
+
+    AuthResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            user:
+              $ref: '#/components/schemas/User'
+            tokens:
+              type: object
+              properties:
+                accessToken:
+                  type: string
+                refreshToken:
+                  type: string
+                expiresIn:
+                  type: integer
+                  description: Token expiration time in seconds
+      example:
+        success: true
+        message: Authentication successful
+        data:
+          user:
+            id: 123
+            email: john.doe@example.com
+            name: John Doe
+          tokens:
+            accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+            refreshToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+            expiresIn: 3600
+
+    TokenResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            accessToken:
+              type: string
+            expiresIn:
+              type: integer
+              description: Token expiration time in seconds
+      example:
+        success: true
+        message: Token refreshed successfully
+        data:
+          accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+          expiresIn: 3600
+
+    UrlResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/Url'
+      example:
+        success: true
+        message: URL retrieved successfully
+        data:
+          id: 456
+          originalUrl: https://www.example.com/page
+          shortUrl: https://short.ly/abc123
+          shortCode: abc123
+          title: Example Page
+          clicks: 142
+
+    UrlListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            urls:
+              type: array
+              items:
+                $ref: '#/components/schemas/Url'
+            pagination:
+              $ref: '#/components/schemas/Pagination'
+
+    AnalyticsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            url:
+              type: object
+              properties:
+                id:
+                  type: integer
+                shortCode:
+                  type: string
+                title:
+                  type: string
+                totalClicks:
+                  type: integer
+            period:
+              type: string
+            summary:
+              type: object
+              properties:
+                totalClicks:
+                  type: integer
+                uniqueClicks:
+                  type: integer
+                clicksToday:
+                  type: integer
+                averageClicksPerDay:
+                  type: number
+            clickHistory:
+              type: array
+              items:
+                type: object
+                properties:
+                  date:
+                    type: string
+                    format: date
+                  clicks:
+                    type: integer
+                  uniqueClicks:
+                    type: integer
+            geography:
+              type: array
+              items:
+                type: object
+                properties:
+                  country:
+                    type: string
+                  clicks:
+                    type: integer
+                  percentage:
+                    type: number
+            referrers:
+              type: array
+              items:
+                type: object
+                properties:
+                  referrer:
+                    type: string
+                  clicks:
+                    type: integer
+                  percentage:
+                    type: number
+            devices:
+              type: array
+              items:
+                type: object
+                properties:
+                  device:
+                    type: string
+                  clicks:
+                    type: integer
+                  percentage:
+                    type: number
+            browsers:
+              type: array
+              items:
+                type: object
+                properties:
+                  browser:
+                    type: string
+                  clicks:
+                    type: integer
+                  percentage:
+                    type: number
+
+    DashboardResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            period:
+              type: string
+            summary:
+              type: object
+              properties:
+                totalUrls:
+                  type: integer
+                totalClicks:
+                  type: integer
+                uniqueClicks:
+                  type: integer
+                activeUrls:
+                  type: integer
+                expiredUrls:
+                  type: integer
+                clicksToday:
+                  type: integer
+                averageClicksPerDay:
+                  type: number
+            topUrls:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  title:
+                    type: string
+                  shortCode:
+                    type: string
+                  clicks:
+                    type: integer
+            recentActivity:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  title:
+                    type: string
+                  shortCode:
+                    type: string
+                  clicks:
+                    type: integer
+                  timestamp:
+                    type: string
+                    format: date-time
+            clickTrend:
+              type: array
+              items:
+                type: object
+                properties:
+                  date:
+                    type: string
+                    format: date
+                  clicks:
+                    type: integer
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          description: Error code
+        message:
+          type: string
+          description: Human-readable error message
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+          description: Detailed validation errors (when applicable)
+      example:
+        success: false
+        error: VALIDATION_ERROR
+        message: Validation failed
+        details:
+          - field: email
+            message: Invalid email format

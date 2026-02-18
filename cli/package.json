@@ -1,0 +1,57 @@
+{
+  "name": "@urlshortener/cli",
+  "version": "1.0.0",
+  "description": "Professional CLI tool for URL shortener management",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "urlshort": "./dist/index.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js",
+    "test": "NODE_OPTIONS='--experimental-vm-modules' jest --forceExit",
+    "test:coverage": "NODE_OPTIONS='--experimental-vm-modules' jest --coverage --forceExit",
+    "lint": "eslint src/",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "url-shortener",
+    "cli",
+    "url",
+    "shortlink",
+    "commander",
+    "terminal"
+  ],
+  "author": "URL Shortener Team",
+  "license": "MIT",
+  "dependencies": {
+    "chalk": "^5.3.0",
+    "cli-table3": "^0.6.5",
+    "commander": "^12.1.0",
+    "conf": "^13.0.1",
+    "csv-parse": "^5.5.6",
+    "csv-stringify": "^6.5.1",
+    "inquirer": "^9.3.7",
+    "ora": "^8.1.0",
+    "pino": "^9.4.0",
+    "pino-pretty": "^11.2.2",
+    "boxen": "^8.0.1",
+    "log-symbols": "^6.0.0",
+    "wrap-ansi": "^9.0.0"
+  },
+  "devDependencies": {
+    "@types/inquirer": "^9.0.7",
+    "@types/jest": "^29.5.13",
+    "@types/node": "^22.7.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.5",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.2"
+  }
+}
